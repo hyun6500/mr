@@ -163,7 +163,7 @@ const F={macro:new Set(),sub:new Set(),fmt:new Set(),region:new Set(),q:"",sort:
 
 /* ---- load ---- */
 // 기본 구글시트 게시 CSV URL (설정해두면 비워둬도 자동 로드)
-const DEFAULT_SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vT-qha5cchA4KiC98MAK3fvYdsosV22vJumXEV40Ayn18JK8cd9yytzws2EltuC12DmSeEnrKFQX7Pc/pub?output=csv";
+const DEFAULT_SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTVC-uZxhptpouWDoPqytKvdZ72rrlbRsIsvZVcdMc1fIK4_609ku4_BtSDWX49cN41bHlZacmzwhsK/pub?gid=1655305962&single=true&output=csv";
 
 async function loadFromUrl(url){
   const proxies=[u=>u,u=>"https://corsproxy.io/?url="+encodeURIComponent(u),u=>"https://api.allorigins.win/raw?url="+encodeURIComponent(u)];
@@ -222,8 +222,8 @@ function ingest(j){
   buildTokens(); renderFilters(); render(); updateStats();
   document.getElementById("empty").style.display=POSTS.length?"none":"block";
 }
-const DEFAULT_MACRO={A:{name:"⚡ 에너지·자원",color:"var(--A)"},B:{name:"🔬 첨단기술·산업",color:"var(--B)"},C:{name:"🌍 지정학·국제",color:"var(--C)"},D:{name:"💰 금융·자산시장",color:"var(--D)"},E:{name:"🇰🇷 한국경제·기업",color:"var(--E)"},I:{name:"🛍️ 소비·서비스",color:"var(--I)"},G:{name:"🩺 건강·라이프",color:"var(--G)"},H:{name:"📰 사회·사건·잡학",color:"var(--H)"},F:{name:"✍️ 메타·운영",color:"var(--F)"},Z:{name:"🗂️ 기타·확장",color:"var(--Z)"}};
-const DEFAULT_SUBS={A1:"🛢️ 원유·정유",A2:"🔥 천연가스·LNG",A3:"☢️ 원자력·우라늄",A4:"⚛️ 핵융합",A5:"🌱 신재생·수소",A6:"🔌 전력·그리드",A7:"⛏️ 산업금속·광물",A8:"🥇 귀금속",A9:"🌾 식량·농업자원",B1:"💾 메모리반도체",B2:"🏭 파운드리·반도체장비",B3:"🤖 AI",B4:"🔋 이차전지·전기차",B5:"🚢 조선·방산",B6:"🛰️ 우주·위성",B7:"🦾 로봇·자동화",B8:"⚛️ 양자",B9:"💊 바이오·제약",C1:"🇺🇸 미국 정치·정책",C2:"🇨🇳 중국",C3:"🇯🇵 일본",C4:"🇹🇼 대만·양안",C5:"🇰🇵 한반도·북한",C6:"🇷🇺 러시아·우크라이나",C7:"🕌 중동",C8:"🇮🇳 인도·동남아",C9:"📦 무역·수출통제",C10:"🇪🇺 유럽(EU·서유럽)",D1:"💱 환율·외환",D2:"🏦 금리·중앙은행",D3:"📜 채권·국채",D4:"📈 주식시장",D5:"🏢 부동산",D6:"👵 연금·기관투자",D7:"🛡️ 보험·금융상품",D8:"🪙 암호화폐",D9:"💵 통화·달러패권",E1:"📊 한국 거시·정책",E2:"🏢 한국 개별기업",E3:"🏠 가계·생활경제 제도",I1:"🛒 유통·소비재",I2:"🚚 운송·물류",I3:"✈️ 여행·레저·엔터",G1:"🫀 질환·인체",G2:"🥗 식품·영양·먹거리",G3:"🏥 의료·응급제도",H1:"⚖️ 한국 사회이슈·사건",H2:"🌪️ 재난·기후·사고",H3:"📚 역사·인문·잡학",F1:"💬 주절주절·잡담",F2:"📝 블로그 운영",F3:"💡 종목 코멘트·후기",Z0:"❓ 기타·미분류"};
+const DEFAULT_MACRO={A:{name:"⚡ 에너지·자원",color:"var(--A)"},B:{name:"🔬 첨단기술·산업",color:"var(--B)"},C:{name:"🌍 지정학·국제",color:"var(--C)"},D:{name:"💰 금융·자산시장",color:"var(--D)"},E:{name:"🏯 한국경제·기업",color:"var(--E)"},I:{name:"🛍️ 소비·서비스",color:"var(--I)"},G:{name:"🩺 건강·라이프",color:"var(--G)"},H:{name:"📰 사회·사건·잡학",color:"var(--H)"},F:{name:"✍️ 메타·운영",color:"var(--F)"},Z:{name:"🗂️ 기타·확장",color:"var(--Z)"}};
+const DEFAULT_SUBS={A1:"🛢️ 원유·정유",A2:"🔥 천연가스·LNG",A3:"☢️ 원자력·우라늄",A4:"⚛️ 핵융합",A5:"🌱 신재생·수소",A6:"🔌 전력·그리드",A7:"⛏️ 산업금속·광물",A8:"🥇 귀금속",A9:"🌾 식량·농업자원",B1:"💾 메모리반도체",B2:"🏭 파운드리·반도체장비",B3:"🤖 AI",B4:"🔋 이차전지·전기차",B5:"🚢 조선·방산",B6:"🛰️ 우주·위성",B7:"🦾 로봇·자동화",B8:"⚛️ 양자",B9:"💊 바이오·제약",C1:"🦅 미국 정치·정책",C2:"🐼 중국",C3:"🗾 일본",C4:"🏝️ 대만·양안",C5:"🚀 한반도·북한",C6:"❄️ 러시아·우크라이나",C7:"🕌 중동",C8:"🐘 인도·동남아",C9:"📦 무역·수출통제",C10:"🏰 유럽(EU·서유럽)",D1:"💱 환율·외환",D2:"🏦 금리·중앙은행",D3:"📜 채권·국채",D4:"📈 주식시장",D5:"🏢 부동산",D6:"👵 연금·기관투자",D7:"🛡️ 보험·금융상품",D8:"🪙 암호화폐",D9:"💵 통화·달러패권",E1:"📊 한국 거시·정책",E2:"🏢 한국 개별기업",E3:"🏠 가계·생활경제 제도",I1:"🛒 유통·소비재",I2:"🚚 운송·물류",I3:"✈️ 여행·레저·엔터",G1:"🫀 질환·인체",G2:"🥗 식품·영양·먹거리",G3:"🏥 의료·응급제도",H1:"⚖️ 한국 사회이슈·사건",H2:"🌪️ 재난·기후·사고",H3:"📚 역사·인문·잡학",F1:"💬 주절주절·잡담",F2:"📝 블로그 운영",F3:"💡 종목 코멘트·후기",Z0:"❓ 기타·미분류"};
 
 /* ---- token build for similarity ---- */
 function tokenize(s){
