@@ -117,15 +117,6 @@
     </div>
   </header>
 
-  <div class="loadbar" id="loadbar">
-    <span class="lbl">데이터</span>
-    <input type="text" id="sheetUrl" placeholder="구글시트 '웹에 게시(CSV)' URL — 비워두면 기본 시트 자동 로드">
-    <button class="btn blue" id="loadUrlBtn">시트 불러오기</button>
-    <button class="btn" id="loadFileBtn">CSV/JSON 파일 열기</button>
-    <input type="file" id="fileInput" accept=".csv,.json" style="display:none">
-    <div class="hint">구글시트를 <b>파일 → 공유 → 웹에 게시 → CSV</b>로 게시한 URL을 넣으면 <b>실시간 연동</b>됩니다(업로드 불필요). 시트에 새 분류 행을 추가하면 페이지가 자동 반영. 기본 시트가 설정돼 있으면 비워둬도 자동 로드됩니다.</div>
-  </div>
-
   <div class="tabs">
     <div class="tab on" data-view="list">목록</div>
     <div class="tab" data-view="series">시리즈 묶음</div>
@@ -223,7 +214,7 @@ function ingest(j){
   document.getElementById("empty").style.display=POSTS.length?"none":"block";
 }
 const DEFAULT_MACRO={A:{name:"⚡ 에너지·자원",color:"var(--A)"},B:{name:"🔬 첨단기술·산업",color:"var(--B)"},C:{name:"🌍 지정학·국제",color:"var(--C)"},D:{name:"💰 금융·자산시장",color:"var(--D)"},E:{name:"🏯 한국경제·기업",color:"var(--E)"},I:{name:"🛍️ 소비·서비스",color:"var(--I)"},G:{name:"🩺 건강·라이프",color:"var(--G)"},H:{name:"📰 사회·사건·잡학",color:"var(--H)"},F:{name:"✍️ 메타·운영",color:"var(--F)"},Z:{name:"🗂️ 기타·확장",color:"var(--Z)"}};
-const DEFAULT_SUBS={A1:"🛢️ 원유·정유",A2:"🔥 천연가스·LNG",A3:"☢️ 원자력·우라늄",A4:"⚛️ 핵융합",A5:"🌱 신재생·수소",A6:"🔌 전력·그리드",A7:"⛏️ 산업금속·광물",A8:"🥇 귀금속",A9:"🌾 식량·농업자원",B1:"💾 메모리반도체",B2:"🏭 파운드리·반도체장비",B3:"🤖 AI",B4:"🔋 이차전지·전기차",B5:"🚢 조선·방산",B6:"🛰️ 우주·위성",B7:"🦾 로봇·자동화",B8:"⚛️ 양자",B9:"💊 바이오·제약",C1:"🦅 미국 정치·정책",C2:"🐼 중국",C3:"🗾 일본",C4:"🏝️ 대만·양안",C5:"🚀 한반도·북한",C6:"❄️ 러시아·우크라이나",C7:"🕌 중동",C8:"🐘 인도·동남아",C9:"📦 무역·수출통제",C10:"🏰 유럽(EU·서유럽)",D1:"💱 환율·외환",D2:"🏦 금리·중앙은행",D3:"📜 채권·국채",D4:"📈 주식시장",D5:"🏢 부동산",D6:"👵 연금·기관투자",D7:"🛡️ 보험·금융상품",D8:"🪙 암호화폐",D9:"💵 통화·달러패권",E1:"📊 한국 거시·정책",E2:"🏢 한국 개별기업",E3:"🏠 가계·생활경제 제도",I1:"🛒 유통·소비재",I2:"🚚 운송·물류",I3:"✈️ 여행·레저·엔터",G1:"🫀 질환·인체",G2:"🥗 식품·영양·먹거리",G3:"🏥 의료·응급제도",H1:"⚖️ 한국 사회이슈·사건",H2:"🌪️ 재난·기후·사고",H3:"📚 역사·인문·잡학",F1:"💬 주절주절·잡담",F2:"📝 블로그 운영",F3:"💡 종목 코멘트·후기",Z0:"❓ 기타·미분류"};
+const DEFAULT_SUBS={A1:"🛢️ 원유·정유",A2:"🔥 천연가스·LNG",A3:"☢️ 원자력·우라늄",A4:"⚛️ 핵융합",A5:"🌱 신재생·수소",A6:"🔌 전력·그리드",A7:"⛏️ 산업금속·광물",A8:"🥇 귀금속",A9:"🌾 식량·농업자원",B1:"💾 메모리반도체",B2:"🏭 파운드리·반도체장비",B3:"🤖 AI",B4:"🔋 이차전지·전기차",B5:"🚢 조선·방산",B6:"🛰️ 우주·위성",B7:"🦾 로봇·자동화",B8:"⚛️ 양자",B9:"💊 바이오·제약",C1:"🇺🇸 미국 정치·정책",C2:"🇨🇳 중국",C3:"🇯🇵 일본",C4:"🇹🇼 대만·양안",C5:"🇰🇷 한반도·북한",C6:"❄️ 러시아·우크라이나",C7:"🕌 중동",C8:"🐘 인도·동남아",C9:"📦 무역·수출통제",C10:"🏰 유럽(EU·서유럽)",D1:"💱 환율·외환",D2:"🏦 금리·중앙은행",D3:"📜 채권·국채",D4:"📈 주식시장",D5:"🏢 부동산",D6:"👵 연금·기관투자",D7:"🛡️ 보험·금융상품",D8:"🪙 암호화폐",D9:"💵 통화·달러패권",E1:"📊 한국 거시·정책",E2:"🏢 한국 개별기업",E3:"🏠 가계·생활경제 제도",I1:"🛒 유통·소비재",I2:"🚚 운송·물류",I3:"✈️ 여행·레저·엔터",G1:"🫀 질환·인체",G2:"🥗 식품·영양·먹거리",G3:"🏥 의료·응급제도",H1:"⚖️ 한국 사회이슈·사건",H2:"🌪️ 재난·기후·사고",H3:"📚 역사·인문·잡학",F1:"💬 주절주절·잡담",F2:"📝 블로그 운영",F3:"💡 종목 코멘트·후기",Z0:"❓ 기타·미분류"};
 
 /* ---- token build for similarity ---- */
 function tokenize(s){
@@ -321,7 +312,24 @@ function render(){
 }
 function renderList(){
   let list=POSTS.filter(pass);
-  list.sort((a,b)=>F.sort==="date_asc"?pd(a.date)-pd(b.date):pd(b.date)-pd(a.date));
+  // 대분류/소분류 필터가 켜져 있으면: 선택분류가 '주분류'인 글을 위로, '부분류'인 글을 아래로
+  const filterOn = F.macro.size>0 || F.sub.size>0;
+  function matchRank(p){
+    // 0 = 선택분류가 주분류(1순위), 1 = 부분류로만 걸림(후순위)
+    if(F.sub.size){
+      if(F.sub.has(p.primary)) return 0;
+      if((p.subs||[]).some(s=>F.sub.has(s))) return 1;
+    }
+    if(F.macro.size){
+      if(F.macro.has(p.primary[0])) return 0;
+      if((p.subs||[]).some(s=>F.macro.has(s[0]))) return 1;
+    }
+    return 0;
+  }
+  list.sort((a,b)=>{
+    if(filterOn){ const r=matchRank(a)-matchRank(b); if(r) return r; }
+    return F.sort==="date_asc"?pd(a.date)-pd(b.date):pd(b.date)-pd(a.date);
+  });
   document.getElementById("count").innerHTML=POSTS.length?`<b>${list.length}</b> / ${POSTS.length}편 표시`:"";
   document.getElementById("grid").innerHTML=list.slice(0,400).map(cardHTML).join("")
     +(list.length>400?`<div class="empty" style="padding:18px">상위 400편만 표시 — 필터로 좁혀보세요</div>`:"");
@@ -509,26 +517,7 @@ document.getElementById("btnGuide").onclick=showGuide;
 document.getElementById("btnStruct").onclick=showStructure;
 document.getElementById("q").oninput=e=>{F.q=e.target.value;render()};
 document.getElementById("sortSel").onchange=e=>{F.sort=e.target.value;render()};
-document.getElementById("loadUrlBtn").onclick=async()=>{
-  let u=document.getElementById("sheetUrl").value.trim()||DEFAULT_SHEET_URL;
-  if(!u){alert("구글시트 게시 CSV URL을 입력하세요");return;}
-  if(u.includes("/edit")){ // /edit 링크면 export csv로 변환
-    let gid=(u.match(/[?&#]gid=(\d+)/)||[])[1];
-    u=u.replace(/\/edit.*$/,"/export?format=csv")+(gid?"&gid="+gid:"");
-  }
-  const btn=document.getElementById("loadUrlBtn");btn.textContent="불러오는 중…";btn.disabled=true;
-  const ok=await loadFromUrl(u);
-  btn.textContent="시트 불러오기";btn.disabled=false;
-  if(!ok)alert("불러오기 실패 — 시트가 '웹에 게시(CSV)'로 공개됐는지 확인하세요. 'CSV/JSON 파일 열기'로 직접 여는 방법도 있습니다.");
-};
-document.getElementById("loadFileBtn").onclick=()=>document.getElementById("fileInput").click();
-document.getElementById("fileInput").onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();
-  r.onload=()=>{try{
-    const t=r.result.trim();
-    if(t.startsWith("{")) ingest(JSON.parse(t));
-    else ingest(csvToData(r.result));
-  }catch(err){alert("파일 해석 실패: "+err.message);}};
-  r.readAsText(f,"utf-8");e.target.value="";};
+/* 데이터 입력 바는 제거됨 — 기본 시트 URL에서 자동 로드만 사용 */
 
 /* 자동 로드: 기본 시트 URL → 없으면 같은 폴더 CSV/JSON */
 (async()=>{
