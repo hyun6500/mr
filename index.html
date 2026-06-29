@@ -135,7 +135,7 @@
     <div class="fgroup"><div class="t">형식</div><div class="chips" id="fmtChips"></div></div>
     <div class="fgroup"><div class="t">지역</div><div class="chips" id="regionChips"></div></div>
     <select class="sortsel" id="sortSel">
-      <option value="date_desc">최신순</option><option value="date_asc">오래된순</option>
+      <option value="relevance">연관순</option><option value="date_desc" selected>최신순</option><option value="date_asc">오래된순</option>
     </select>
   </div>
 
@@ -312,7 +312,6 @@ function render(){
 }
 function renderList(){
   let list=POSTS.filter(pass);
-  // 대분류/소분류 필터가 켜져 있으면: 선택분류가 '주분류'인 글을 위로, '부분류'인 글을 아래로
   const filterOn = F.macro.size>0 || F.sub.size>0;
   function matchRank(p){
     // 0 = 선택분류가 주분류(1순위), 1 = 부분류로만 걸림(후순위)
@@ -327,7 +326,8 @@ function renderList(){
     return 0;
   }
   list.sort((a,b)=>{
-    if(filterOn){ const r=matchRank(a)-matchRank(b); if(r) return r; }
+    // 연관순: 선택분류가 주분류인 글을 위로, 그 다음 최신순. (필터 없으면 최신순과 동일)
+    if(F.sort==="relevance" && filterOn){ const r=matchRank(a)-matchRank(b); if(r) return r; }
     return F.sort==="date_asc"?pd(a.date)-pd(b.date):pd(b.date)-pd(a.date);
   });
   document.getElementById("count").innerHTML=POSTS.length?`<b>${list.length}</b> / ${POSTS.length}편 표시`:"";
