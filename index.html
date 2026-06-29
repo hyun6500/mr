@@ -24,6 +24,9 @@
   .tab{padding:8px 16px;border-radius:9px;border:1px solid var(--line2);background:var(--panel);color:var(--mut);cursor:pointer;font-size:13px;font-weight:600;transition:.12s}
   .tab:hover{color:var(--txt)}
   .tab.on{background:var(--amber);color:#241a06;border-color:var(--amber)}
+  .tab.ghost{background:transparent;border-color:var(--line);color:var(--mut)}
+  .tab.ghost:hover{border-color:var(--blue);color:var(--blue)}
+  .tab.ghost.on{background:transparent;color:var(--blue);border-color:var(--blue)}
   /* loadbar */
   .loadbar{background:linear-gradient(180deg,var(--panel),var(--ink2));border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
   .loadbar .lbl{font-size:11px;color:var(--mut2);text-transform:uppercase;letter-spacing:.1em}
@@ -116,17 +119,20 @@
 
   <div class="loadbar" id="loadbar">
     <span class="lbl">데이터</span>
-    <input type="text" id="jsonUrl" placeholder="분류결과 JSON의 URL (깃허브에 올린 파일 주소)">
-    <button class="btn blue" id="loadUrlBtn">불러오기</button>
-    <button class="btn" id="loadFileBtn">JSON 파일 열기</button>
-    <input type="file" id="fileInput" accept=".json" style="display:none">
-    <div class="hint">분류도구에서 <b>'결과 JSON 내보내기'</b>로 만든 <code>메르_분류결과.json</code>을 깃허브 같은 곳에 올리고 그 주소를 넣거나, 파일을 직접 여세요. 같은 폴더에 <code>메르_분류결과.json</code>이 있으면 자동으로 불러옵니다.</div>
+    <input type="text" id="sheetUrl" placeholder="구글시트 '웹에 게시(CSV)' URL — 비워두면 기본 시트 자동 로드">
+    <button class="btn blue" id="loadUrlBtn">시트 불러오기</button>
+    <button class="btn" id="loadFileBtn">CSV/JSON 파일 열기</button>
+    <input type="file" id="fileInput" accept=".csv,.json" style="display:none">
+    <div class="hint">구글시트를 <b>파일 → 공유 → 웹에 게시 → CSV</b>로 게시한 URL을 넣으면 <b>실시간 연동</b>됩니다(업로드 불필요). 시트에 새 분류 행을 추가하면 페이지가 자동 반영. 기본 시트가 설정돼 있으면 비워둬도 자동 로드됩니다.</div>
   </div>
 
   <div class="tabs">
     <div class="tab on" data-view="list">목록</div>
     <div class="tab" data-view="series">시리즈 묶음</div>
     <div class="tab" data-view="topic">주제 묶음</div>
+    <div style="flex:1"></div>
+    <div class="tab ghost" id="btnStruct">📊 분류 구조</div>
+    <div class="tab ghost" id="btnGuide">📋 운영 가이드</div>
   </div>
 
   <div class="legend" id="legend"></div>
@@ -134,6 +140,7 @@
   <div class="filters" id="filters">
     <input type="text" id="q" placeholder="제목·본문·근거 검색 (예: 양자암호, 호르무즈, HBM)">
     <div class="fgroup"><div class="t">대분류</div><div class="chips" id="macroChips"></div></div>
+    <div class="fgroup" id="subWrap" style="display:none;width:100%"><div class="t">소분류 <span id="subHint" style="color:var(--mut2);font-weight:400"></span></div><div class="chips" id="subChips"></div></div>
     <div class="fgroup"><div class="t">형식</div><div class="chips" id="fmtChips"></div></div>
     <div class="fgroup"><div class="t">지역</div><div class="chips" id="regionChips"></div></div>
     <select class="sortsel" id="sortSel">
@@ -152,13 +159,61 @@
 
 <script>
 let MACRO={},SUBS={},POSTS=[],VIEW="list";
-const F={macro:new Set(),fmt:new Set(),region:new Set(),q:"",sort:"date_desc"};
+const F={macro:new Set(),sub:new Set(),fmt:new Set(),region:new Set(),q:"",sort:"date_desc"};
 
 /* ---- load ---- */
+// 기본 구글시트 게시 CSV URL (설정해두면 비워둬도 자동 로드)
+const DEFAULT_SHEET_URL = ""; // 예: "https://docs.google.com/spreadsheets/d/e/XXXX/pub?output=csv"
+
 async function loadFromUrl(url){
   const proxies=[u=>u,u=>"https://corsproxy.io/?url="+encodeURIComponent(u),u=>"https://api.allorigins.win/raw?url="+encodeURIComponent(u)];
-  for(const p of proxies){ try{ const r=await fetch(p(url)); if(r.ok){const j=await r.json(); if(j.posts){ingest(j);return true;}} }catch(e){} }
+  for(const p of proxies){
+    try{
+      const r=await fetch(p(url));
+      if(r.ok){
+        const txt=await r.text();
+        if(txt.trim().startsWith("{")){ // JSON
+          const j=JSON.parse(txt); if(j.posts){ingest(j);return true;}
+        } else { // CSV
+          const j=csvToData(txt); if(j.posts.length){ingest(j);return true;}
+        }
+      }
+    }catch(e){}
+  }
   return false;
+}
+// CSV → {posts, codebook} 변환
+function csvToData(text){
+  text=text.replace(/^\uFEFF/,"");
+  const rows=parseCSV(text).filter(r=>r.some(c=>c&&c.trim()));
+  if(rows.length<2) return {posts:[]};
+  const H=rows[0].map(x=>x.trim());
+  const idx=n=>H.findIndex(h=>h===n||h.includes(n));
+  const iId=idx("id"),iDate=idx("date"),iTitle=idx("title"),iLink=idx("link"),iCat=idx("cat"),
+        iPrim=idx("primary"),iSubs=idx("subs"),iReg=idx("region"),iFmt=idx("format"),
+        iSer=idx("series"),iConf=idx("confidence"),iRea=idx("reason"),iBody=idx("body");
+  const posts=rows.slice(1).map(r=>({
+    id:r[iId]||r[iLink]||r[iTitle], date:r[iDate]||"", title:r[iTitle]||"",
+    link:iLink>=0?r[iLink]||"":"", cat:iCat>=0?r[iCat]||"":"",
+    primary:(r[iPrim]||"Z0").trim(),
+    subs:iSubs>=0&&r[iSubs]?r[iSubs].split("|").filter(Boolean):[],
+    region:iReg>=0&&r[iReg]?r[iReg].split("|").filter(Boolean):[],
+    format:iFmt>=0?r[iFmt]||"":"", series:iSer>=0?r[iSer]||"":"",
+    confidence:iConf>=0?r[iConf]||"중":"중", reason:iRea>=0?r[iRea]||"":"",
+    body:iBody>=0?r[iBody]||"":""
+  })).filter(p=>p.title||p.body);
+  return {posts, codebook:{macro:DEFAULT_MACRO, subs:DEFAULT_SUBS}};
+}
+// 견고한 CSV 파서 (따옴표·콤마·줄바꿈 처리)
+function parseCSV(text){
+  const rows=[];let i=0,f="",row=[],q=false;
+  while(i<text.length){const c=text[i];
+    if(q){ if(c=='"'){ if(text[i+1]=='"'){f+='"';i++} else q=false } else f+=c }
+    else{ if(c=='"')q=true; else if(c==','){row.push(f);f=""} else if(c=='\n'){row.push(f);rows.push(row);row=[];f=""} else if(c=='\r'){} else f+=c }
+    i++;
+  }
+  if(f.length||row.length){row.push(f);rows.push(row)}
+  return rows;
 }
 function ingest(j){
   MACRO=j.codebook?.macro||MACRO; SUBS=j.codebook?.subs||SUBS; POSTS=j.posts||[];
@@ -167,8 +222,8 @@ function ingest(j){
   buildTokens(); renderFilters(); render(); updateStats();
   document.getElementById("empty").style.display=POSTS.length?"none":"block";
 }
-const DEFAULT_MACRO={A:{name:"에너지·자원",color:"var(--A)"},B:{name:"첨단기술·산업",color:"var(--B)"},C:{name:"지정학·국제",color:"var(--C)"},D:{name:"금융·자산시장",color:"var(--D)"},E:{name:"한국경제·기업",color:"var(--E)"},I:{name:"소비·서비스",color:"var(--I)"},G:{name:"건강·라이프",color:"var(--G)"},H:{name:"사회·사건·잡학",color:"var(--H)"},F:{name:"메타·운영",color:"var(--F)"},Z:{name:"기타·확장",color:"var(--Z)"}};
-const DEFAULT_SUBS={A1:"원유·정유",A2:"천연가스·LNG",A3:"원자력·우라늄",A4:"핵융합",A5:"신재생·수소",A6:"전력·그리드",A7:"산업금속·광물",A8:"귀금속",A9:"식량·농업자원",B1:"메모리반도체",B2:"파운드리·반도체장비",B3:"AI",B4:"이차전지·전기차",B5:"조선·방산",B6:"우주·위성",B7:"로봇·자동화",B8:"양자",B9:"바이오·제약",C1:"미국 정치·정책",C2:"중국",C3:"일본",C4:"대만·양안",C5:"한반도·북한",C6:"러시아·우크라이나",C7:"중동",C8:"인도·동남아",C9:"무역·수출통제",C10:"유럽(EU·서유럽)",D1:"환율·외환",D2:"금리·중앙은행",D3:"채권·국채",D4:"주식시장",D5:"부동산",D6:"연금·기관투자",D7:"보험·금융상품",D8:"암호화폐",D9:"통화·달러패권",E1:"한국 거시·정책",E2:"한국 개별기업",E3:"가계·생활경제 제도",I1:"유통·소비재",I2:"운송·물류",I3:"여행·레저·엔터",G1:"질환·인체",G2:"식품·영양·먹거리",G3:"의료·응급제도",H1:"한국 사회이슈·사건",H2:"재난·기후·사고",H3:"역사·인문·잡학",F1:"주절주절·잡담",F2:"블로그 운영",F3:"종목 코멘트·후기",Z0:"기타·미분류"};
+const DEFAULT_MACRO={A:{name:"⚡ 에너지·자원",color:"var(--A)"},B:{name:"🔬 첨단기술·산업",color:"var(--B)"},C:{name:"🌍 지정학·국제",color:"var(--C)"},D:{name:"💰 금융·자산시장",color:"var(--D)"},E:{name:"🇰🇷 한국경제·기업",color:"var(--E)"},I:{name:"🛍️ 소비·서비스",color:"var(--I)"},G:{name:"🩺 건강·라이프",color:"var(--G)"},H:{name:"📰 사회·사건·잡학",color:"var(--H)"},F:{name:"✍️ 메타·운영",color:"var(--F)"},Z:{name:"🗂️ 기타·확장",color:"var(--Z)"}};
+const DEFAULT_SUBS={A1:"🛢️ 원유·정유",A2:"🔥 천연가스·LNG",A3:"☢️ 원자력·우라늄",A4:"⚛️ 핵융합",A5:"🌱 신재생·수소",A6:"🔌 전력·그리드",A7:"⛏️ 산업금속·광물",A8:"🥇 귀금속",A9:"🌾 식량·농업자원",B1:"💾 메모리반도체",B2:"🏭 파운드리·반도체장비",B3:"🤖 AI",B4:"🔋 이차전지·전기차",B5:"🚢 조선·방산",B6:"🛰️ 우주·위성",B7:"🦾 로봇·자동화",B8:"⚛️ 양자",B9:"💊 바이오·제약",C1:"🇺🇸 미국 정치·정책",C2:"🇨🇳 중국",C3:"🇯🇵 일본",C4:"🇹🇼 대만·양안",C5:"🇰🇵 한반도·북한",C6:"🇷🇺 러시아·우크라이나",C7:"🕌 중동",C8:"🇮🇳 인도·동남아",C9:"📦 무역·수출통제",C10:"🇪🇺 유럽(EU·서유럽)",D1:"💱 환율·외환",D2:"🏦 금리·중앙은행",D3:"📜 채권·국채",D4:"📈 주식시장",D5:"🏢 부동산",D6:"👵 연금·기관투자",D7:"🛡️ 보험·금융상품",D8:"🪙 암호화폐",D9:"💵 통화·달러패권",E1:"📊 한국 거시·정책",E2:"🏢 한국 개별기업",E3:"🏠 가계·생활경제 제도",I1:"🛒 유통·소비재",I2:"🚚 운송·물류",I3:"✈️ 여행·레저·엔터",G1:"🫀 질환·인체",G2:"🥗 식품·영양·먹거리",G3:"🏥 의료·응급제도",H1:"⚖️ 한국 사회이슈·사건",H2:"🌪️ 재난·기후·사고",H3:"📚 역사·인문·잡학",F1:"💬 주절주절·잡담",F2:"📝 블로그 운영",F3:"💡 종목 코멘트·후기",Z0:"❓ 기타·미분류"};
 
 /* ---- token build for similarity ---- */
 function tokenize(s){
@@ -214,17 +269,41 @@ function renderFilters(){
   const mc=document.getElementById("macroChips");mc.innerHTML="";
   Object.entries(MACRO).forEach(([k,v])=>{const c=document.createElement("div");c.className="chip";c.textContent=k+" "+v.name;
     if(F.macro.has(k)){c.classList.add("on");c.style.background=v.color;c.style.color="#0e1320";}
-    c.onclick=()=>{ if(F.macro.has(k)){F.macro.delete(k);c.classList.remove("on");c.style.background="";c.style.color="";}else{F.macro.add(k);c.classList.add("on");c.style.background=v.color;c.style.color="#0e1320";} render(); };
+    c.onclick=()=>{ if(F.macro.has(k)){F.macro.delete(k);c.classList.remove("on");c.style.background="";c.style.color="";}else{F.macro.add(k);c.classList.add("on");c.style.background=v.color;c.style.color="#0e1320";} renderSubChips(); render(); };
     mc.appendChild(c);});
   fillChips("fmtChips",["근황시리즈","신규딥다이브","속보·이벤트","투자아이디어","생활상식"],F.fmt);
   fillChips("regionChips",["미국","중국","일본","한국","유럽","중동","인도·동남아","러시아","글로벌"],F.region);
   document.getElementById("legend").innerHTML=Object.entries(MACRO).map(([k,v])=>`<span><i class="dot" style="background:${v.color}"></i>${k} ${v.name}</span>`).join("");
+  renderSubChips();
+}
+// 선택된 대분류의 소분류 칩 표시 + 각 소분류 글 수
+function renderSubChips(){
+  const wrap=document.getElementById("subWrap"), box=document.getElementById("subChips");
+  box.innerHTML="";
+  if(!F.macro.size){ wrap.style.display="none"; F.sub.clear(); return; }
+  wrap.style.display="";
+  // 선택된 대분류들에 속한 소분류 코드 수집(주분류 기준 글 수 집계)
+  const cnt={};
+  POSTS.forEach(p=>{ if(F.macro.has(p.primary[0])) cnt[p.primary]=(cnt[p.primary]||0)+1; });
+  const subs=Object.keys(SUBS).filter(code=>F.macro.has(code[0]));
+  // 선택해제된 소분류가 현재 대분류에 없으면 제거
+  [...F.sub].forEach(s=>{ if(!F.macro.has(s[0])) F.sub.delete(s); });
+  document.getElementById("subHint").textContent = "("+[...F.macro].join("·")+" 안에서 좁히기)";
+  subs.forEach(code=>{
+    const n=cnt[code]||0;
+    const c=document.createElement("div");c.className="chip";
+    c.innerHTML=`${code} ${SUBS[code]} <span style="opacity:.6">${n}</span>`;
+    if(F.sub.has(code))c.classList.add("on");
+    c.onclick=()=>{ F.sub.has(code)?F.sub.delete(code):F.sub.add(code); c.classList.toggle("on"); render(); };
+    box.appendChild(c);
+  });
 }
 function fillChips(id,items,set){const el=document.getElementById(id);el.innerHTML="";
   items.forEach(it=>{const c=document.createElement("div");c.className="chip";c.textContent=it;if(set.has(it))c.classList.add("on");
     c.onclick=()=>{set.has(it)?set.delete(it):set.add(it);c.classList.toggle("on");render();};el.appendChild(c);});}
 function pass(p){
   if(F.macro.size&&!F.macro.has(p.primary[0])&&!(p.subs||[]).some(s=>F.macro.has(s[0])))return false;
+  if(F.sub.size&&!F.sub.has(p.primary)&&!(p.subs||[]).some(s=>F.sub.has(s)))return false;
   if(F.fmt.size&&!F.fmt.has(p.format))return false;
   if(F.region.size&&!(p.region||[]).some(x=>F.region.has(x)))return false;
   if(F.q){const h=(p.title+" "+p.body+" "+p.reason+" "+p.primary+" "+(SUBS[p.primary]||"")+" "+(p.subs||[]).map(s=>SUBS[s]).join(" ")+" "+p.series).toLowerCase();if(!h.includes(F.q.toLowerCase()))return false;}
@@ -319,6 +398,84 @@ function openModal(id){
   document.getElementById("sheetBox").scrollTop=0;
 }
 function closeModal(){document.getElementById("modal").classList.remove("on");}
+
+/* ---- 분류 구조 보기 ---- */
+function showStructure(){
+  // 대분류별 소분류와 글 수 집계
+  const cnt={}, mcnt={};
+  POSTS.forEach(p=>{ cnt[p.primary]=(cnt[p.primary]||0)+1; mcnt[p.primary[0]]=(mcnt[p.primary[0]]||0)+1; });
+  const conf={고:0,중:0,저:0}; POSTS.forEach(p=>conf[p.confidence]=(conf[p.confidence]||0)+1);
+  const serCnt=new Set(POSTS.filter(p=>p.series).map(p=>p.series)).size;
+  let html=`<span class="x" onclick="closeModal()">×</span><h2>📊 분류 구조</h2>
+    <div style="color:var(--mut);font-size:12.5px;margin:6px 0 16px">전체 ${POSTS.length}편 · 시리즈 ${serCnt}개 · 확신도 고 ${conf.고} / 중 ${conf.중} / 저 ${conf.저}</div>`;
+  Object.entries(MACRO).forEach(([mk,mv])=>{
+    const subs=Object.keys(SUBS).filter(c=>c[0]===mk);
+    const mtot=mcnt[mk]||0;
+    if(!mtot && mk==='Z') return;
+    html+=`<div style="margin:14px 0 6px;display:flex;align-items:center;gap:8px">
+      <span style="width:11px;height:11px;border-radius:3px;background:${mv.color};display:inline-block"></span>
+      <b style="font-size:14px">${mk}. ${mv.name}</b>
+      <span style="color:var(--mut2);font-size:12px">${mtot}편</span></div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;padding-left:19px">`;
+    subs.forEach(code=>{
+      const n=cnt[code]||0;
+      const dim=n===0?'opacity:.35':'';
+      html+=`<span onclick="closeModal();jumpToSub('${code}')" style="cursor:pointer;font-size:12px;padding:4px 9px;border-radius:7px;background:var(--panel2);border:1px solid var(--line);${dim}">${code} ${SUBS[code]} <b style="color:${mv.color}">${n}</b></span>`;
+    });
+    html+=`</div>`;
+  });
+  html+=`<div style="margin-top:18px;padding-top:12px;border-top:1px solid var(--line);color:var(--mut2);font-size:11.5px">소분류를 클릭하면 그 분류의 글로 좁혀집니다. 색 숫자는 주분류 기준 글 수입니다.</div>`;
+  document.getElementById("sheetBox").innerHTML=html;
+  document.getElementById("modal").classList.add("on");
+  document.getElementById("sheetBox").scrollTop=0;
+}
+function jumpToSub(code){
+  F.macro.clear(); F.macro.add(code[0]); F.sub.clear(); F.sub.add(code);
+  VIEW="list"; setTab("list"); renderFilters(); render();
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+
+/* ---- 운영 가이드 보기 ---- */
+function showGuide(){
+  document.getElementById("sheetBox").innerHTML=`<span class="x" onclick="closeModal()">×</span>
+    <h2>📋 운영 가이드 — 새 글 추가하기</h2>
+    <div style="font-size:13px;line-height:1.7;color:#cdd6e8">
+    <p style="color:var(--amber);font-weight:600;margin:10px 0 4px">핵심: 분류는 어떤 페이지가 아니라, claude.ai 새 채팅 속의 Claude가 직접 한다.</p>
+    <p style="color:var(--mut);font-size:12px">관제탑 HTML은 쓰지 않습니다(API 차단). 이 대화에서 2,222편 분류한 것과 똑같은 방식.</p>
+    <h3 style="font-size:13.5px;margin:16px 0 6px;color:var(--blue)">새 글 100개쯤 쌓였을 때 순서</h3>
+    <ol style="padding-left:18px;margin:0">
+      <li>새로 쌓인 글을 <b>CSV</b>로 내보낸다 (열: PC링크·날짜·카테고리·제목·본문).</li>
+      <li>claude.ai <b>새 채팅</b>을 연다.</li>
+      <li>파일 3개 첨부: <b>① 새 글 CSV ② 코드북(.md) ③ 과거 분류결과 JSON</b>.</li>
+      <li>아래 프롬프트를 붙여넣는다.</li>
+      <li>Claude가 만든 <b>통합 JSON</b>을 GitHub <code>mr</code> 폴더의 <code>메르_분류결과.json</code>에 <b>덮어쓴다</b>.</li>
+      <li>받은 통합 JSON과 (갱신됐다면) 새 코드북을 <b>내 보관함의 최신본으로 교체</b>한다.</li>
+    </ol>
+    <h3 style="font-size:13.5px;margin:16px 0 6px;color:var(--blue)">⚠️ 핵심 주의</h3>
+    <ul style="padding-left:18px;margin:0">
+      <li>반드시 <b>과거+신규 통합 JSON</b>을 올린다. 새 100개만 올리면 과거가 사라진다.</li>
+      <li>과거 JSON을 꼭 첨부한다(시리즈 연결·중복 제거에 필요).</li>
+    </ul>
+    <h3 style="font-size:13.5px;margin:16px 0 6px;color:var(--blue)">복붙용 프롬프트</h3>
+    <div style="position:relative">
+    <button onclick="copyPrompt()" style="position:absolute;right:6px;top:6px;font-size:11px;padding:4px 10px;border-radius:6px;background:var(--blue);color:#fff;border:none;cursor:pointer">복사</button>
+    <pre id="promptBox" style="white-space:pre-wrap;background:var(--ink);border:1px solid var(--line);border-radius:9px;padding:12px;font-size:11.5px;line-height:1.6;color:#cdd6e8;overflow:auto;max-height:300px">${GUIDE_PROMPT}</pre>
+    </div></div>`;
+  document.getElementById("modal").classList.add("on");
+  document.getElementById("sheetBox").scrollTop=0;
+}
+const GUIDE_PROMPT=`첨부한 3개 파일로 메르 블로그 아카이브 분류를 갱신해줘.
+
+[첨부] 새 글 CSV / 코드북 / 과거 분류결과 JSON
+
+[요청 — 코드북 §4-6 정기 갱신 사이클대로]
+1. 중복 제거: 새 CSV에서 과거 JSON에 이미 있는 글(PC링크 또는 제목+날짜 일치)은 제외.
+2. 증분 분류: 새 글만 코드북 §0-1 경계 규칙으로 분류. 글을 읽고 "결국 무엇에 관한 글인가"로 주분류 결정. 주분류1+부분류0~4+지역+형식+시리즈명+확신도+근거.
+3. 시리즈 연결: 후속편은 과거 시리즈의 주분류·시리즈명을 이어줘.
+4. 코드북 점검: Z0로 간 글, 보류후보(자동차·통신 등) 증가, 새 반복주제 확인. 트리거(누적 12편) 충족 시 보고하고 소분류 신설 제안. 합의되면 코드북 버전 올림.
+5. 출력: 과거+신규 병합한 통합 JSON을 mr 열람페이지 형식으로. 스키마 {generated,codebook:{macro,subs},count,posts:[{id,date,title,body,link,cat,primary,subs,region,format,series,confidence,reason,manual}]}. 본문 전문 포함.
+6. 분류 요약(대분류 분포, 새 이슈, 확신도 저 목록) 보고.`;
+function copyPrompt(){ navigator.clipboard?.writeText(GUIDE_PROMPT).then(()=>{const b=event.target;b.textContent="복사됨!";setTimeout(()=>b.textContent="복사",1500);}); }
 document.getElementById("modal").onclick=e=>{if(e.target.id==="modal")closeModal();};
 function searchSeries(s){ VIEW="list"; setTab("list"); F.q=s; document.getElementById("q").value=s; render(); window.scrollTo({top:0,behavior:"smooth"}); }
 
@@ -332,22 +489,38 @@ function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;",
 function mix(v){return `color-mix(in srgb, ${v} 16%, transparent)`;}
 
 /* ---- wiring ---- */
-function setTab(v){VIEW=v;document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("on",t.dataset.view===v));render();}
-document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>setTab(t.dataset.view));
+function setTab(v){VIEW=v;document.querySelectorAll(".tab[data-view]").forEach(t=>t.classList.toggle("on",t.dataset.view===v));render();}
+document.querySelectorAll(".tab[data-view]").forEach(t=>t.onclick=()=>setTab(t.dataset.view));
+document.getElementById("btnGuide").onclick=showGuide;
+document.getElementById("btnStruct").onclick=showStructure;
 document.getElementById("q").oninput=e=>{F.q=e.target.value;render()};
 document.getElementById("sortSel").onchange=e=>{F.sort=e.target.value;render()};
 document.getElementById("loadUrlBtn").onclick=async()=>{
-  const u=document.getElementById("jsonUrl").value.trim(); if(!u){alert("JSON URL을 입력하세요");return;}
-  document.getElementById("loadUrlBtn").textContent="불러오는 중…";
+  let u=document.getElementById("sheetUrl").value.trim()||DEFAULT_SHEET_URL;
+  if(!u){alert("구글시트 게시 CSV URL을 입력하세요");return;}
+  if(u.includes("/edit")){ // /edit 링크면 export csv로 변환
+    let gid=(u.match(/[?&#]gid=(\d+)/)||[])[1];
+    u=u.replace(/\/edit.*$/,"/export?format=csv")+(gid?"&gid="+gid:"");
+  }
+  const btn=document.getElementById("loadUrlBtn");btn.textContent="불러오는 중…";btn.disabled=true;
   const ok=await loadFromUrl(u);
-  document.getElementById("loadUrlBtn").textContent="불러오기";
-  if(!ok)alert("불러오기 실패 — URL이 맞는지, 파일이 공개되어 있는지 확인하세요. 'JSON 파일 열기'로 직접 여는 방법도 있습니다.");
+  btn.textContent="시트 불러오기";btn.disabled=false;
+  if(!ok)alert("불러오기 실패 — 시트가 '웹에 게시(CSV)'로 공개됐는지 확인하세요. 'CSV/JSON 파일 열기'로 직접 여는 방법도 있습니다.");
 };
 document.getElementById("loadFileBtn").onclick=()=>document.getElementById("fileInput").click();
 document.getElementById("fileInput").onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();
-  r.onload=()=>{try{ingest(JSON.parse(r.result));}catch(err){alert("JSON 해석 실패: "+err.message);}};r.readAsText(f,"utf-8");e.target.value="";};
+  r.onload=()=>{try{
+    const t=r.result.trim();
+    if(t.startsWith("{")) ingest(JSON.parse(t));
+    else ingest(csvToData(r.result));
+  }catch(err){alert("파일 해석 실패: "+err.message);}};
+  r.readAsText(f,"utf-8");e.target.value="";};
 
-/* 같은 폴더 자동 로드 시도 */
-(async()=>{ try{const r=await fetch("메르_분류결과.json");if(r.ok){const j=await r.json();if(j.posts)ingest(j);}}catch(e){} })();
+/* 자동 로드: 기본 시트 URL → 없으면 같은 폴더 CSV/JSON */
+(async()=>{
+  if(DEFAULT_SHEET_URL){ if(await loadFromUrl(DEFAULT_SHEET_URL))return; }
+  try{const r=await fetch("메르_분류_시트용.csv");if(r.ok){ingest(csvToData(await r.text()));return;}}catch(e){}
+  try{const r=await fetch("메르_분류결과.json");if(r.ok){const j=await r.json();if(j.posts)ingest(j);}}catch(e){}
+})();
 renderFilters();
 </script>
