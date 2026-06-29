@@ -163,7 +163,7 @@ const F={macro:new Set(),sub:new Set(),fmt:new Set(),region:new Set(),q:"",sort:
 
 /* ---- load ---- */
 // 기본 구글시트 게시 CSV URL (설정해두면 비워둬도 자동 로드)
-const DEFAULT_SHEET_URL = ""; // 예: "https://docs.google.com/spreadsheets/d/e/XXXX/pub?output=csv"
+const DEFAULT_SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vT-qha5cchA4KiC98MAK3fvYdsosV22vJumXEV40Ayn18JK8cd9yytzws2EltuC12DmSeEnrKFQX7Pc/pub?output=csv";
 
 async function loadFromUrl(url){
   const proxies=[u=>u,u=>"https://corsproxy.io/?url="+encodeURIComponent(u),u=>"https://api.allorigins.win/raw?url="+encodeURIComponent(u)];
